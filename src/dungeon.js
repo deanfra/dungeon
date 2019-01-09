@@ -7,6 +7,7 @@ const defaultConfig = {
   width: 50,
   height: 50,
   randomSeed: undefined,
+  chanceToLinkRooms: 20,
   doorPadding: 1, // Experimental, minimum number of tiles between a door and a room corner (>= 1)
   rooms: {
     width: { min: 5, max: 15, onlyOdd: false, onlyEven: false },
@@ -37,6 +38,7 @@ export default class Dungeon {
     this.doorPadding = config.doorPadding || defaultConfig.doorPadding;
     this.width = config.width || defaultConfig.width;
     this.height = config.height || defaultConfig.height;
+    this.chanceToLinkRooms = config.chanceToLinkRooms || defaultConfig.chanceToLinkRooms;
     this.roomConfig = rooms;
     this.rooms = [];
     this.r = new Random(config.randomSeed);
@@ -84,22 +86,22 @@ export default class Dungeon {
       i -= 1;
     }
 
-    // // Now we want to randomly add doors between some of the rooms and other rooms they touch
-    // for (let i = 0; i < this.rooms.length; i++) {
-    //   // Find all rooms that we could connect with this one
-    //   const targets = this.getPotentiallyTouchingRooms(this.rooms[i]);
-    //   for (let j = 0; j < targets.length; j++) {
-    //     // Make sure the rooms aren't already connected with a door
-    //     if (!this.rooms[i].isConnectedTo(targets[j])) {
-    //       // 20% chance we add a door connecting the rooms
-    //       if (Math.random() < 0.2) {
-    //         const [door1, door2] = this.findNewDoorLocation(this.rooms[i], targets[j]);
-    //         this.addDoor(door1);
-    //         this.addDoor(door2);
-    //       }
-    //     }
-    //   }
-    // }
+    // Now we want to randomly add doors between some of the rooms and other rooms they touch
+    for (let i = 0; i < this.rooms.length; i++) {
+      // Find all rooms that we could connect with this one
+      const targets = this.getPotentiallyTouchingRooms(this.rooms[i]);
+      for (let j = 0; j < targets.length; j++) {
+        // Make sure the rooms aren't already connected with a door
+        if (!this.rooms[i].isConnectedTo(targets[j])) {
+          // % chance we add a door connecting the rooms
+          if (Math.random() < (this.chanceToLinkRooms / 100)) {
+            const [door1, door2] = this.findNewDoorLocation(this.rooms[i], targets[j]);
+            this.addDoor(door1);
+            this.addDoor(door2);
+          }
+        }
+      }
+    }
   }
 
   getRoomAt(x, y) {
@@ -220,7 +222,7 @@ export default class Dungeon {
 
     // function that checks the list of rooms at a point in our grid for any potential touching
     // rooms
-    const checkRoomList = function(x, y, rg) {
+    const checkRoomList = function (x, y, rg) {
       const r = rg[y][x];
       for (let i = 0; i < r.length; i++) {
         // make sure this room isn't the one we're searching around and that it isn't already in the
@@ -239,13 +241,13 @@ export default class Dungeon {
     // iterate the north and south walls, looking for other rooms in those tile locations
     for (let x = room.x + 1; x < room.x + room.width - 1; x++) {
       checkRoomList(x, room.y, this.roomGrid);
-      checkRoomList(x, room.y + room.height - 1, this.roomGrid);
+      checkRoomList(x, room.y + room.height, this.roomGrid);
     }
 
     // iterate the west and east walls, looking for other rooms in those tile locations
     for (let y = room.y + 1; y < room.y + room.height - 1; y++) {
       checkRoomList(room.x, y, this.roomGrid);
-      checkRoomList(room.x + room.width - 1, y, this.roomGrid);
+      checkRoomList(room.x + room.width, y, this.roomGrid);
     }
 
     return touchingRooms;
@@ -288,6 +290,12 @@ export default class Dungeon {
       door1.y = room1.y;
       door2.y = room2.y + room2.height - 1;
     }
+
+    door1.linksTo = room2.id;
+    door2.linksTo = room1.id;
+
+    room1.doors.push(door1);
+    room2.doors.push(door2);
 
     return [door1, door2];
   }
