@@ -254,8 +254,8 @@ export default class Dungeon {
   }
 
   findNewDoorLocation(room1, room2) {
-    const door1 = { x: -1, y: -1 };
-    const door2 = { x: -1, y: -1 };
+    const door1 = { x: -1, y: -1, linksTo: room2.id };
+    const door2 = { x: -1, y: -1, linksTo: room1.id };
     
     const isNorth = (room1.y === room2.y - room1.height);
     const isEast = (room1.x == room2.x + room2.width);
@@ -296,8 +296,6 @@ export default class Dungeon {
       door2.y = room2.y + room2.height - 1;
     }
 
-    door1.linksTo = room2.id;
-    door2.linksTo = room1.id;
     room1.doors.push(door1);
     room2.doors.push(door2);
 
@@ -305,8 +303,9 @@ export default class Dungeon {
 
     // surrounds the first door tile with more doors
     for (let i = 1; i < this.doorSize; i++) {
-      const newDoor1 = { x: -1, y: -1 };
-      const newDoor2 = { x: -1, y: -1 };
+      const newDoor1 = { x: -1, y: -1, linksTo: room2.id };
+      const newDoor2 = { x: -1, y: -1, linksTo: room1.id };
+
       const isOdd = num => num % 2;
       const increment = Math.round(i / 2); // how far from centre door 
       const incremented = doorPos => isOdd(i) ? doorPos - increment : doorPos + increment; // spaces away from centre door 
