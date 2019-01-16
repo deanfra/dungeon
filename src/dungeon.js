@@ -9,6 +9,7 @@ const defaultConfig = {
   randomSeed: undefined,
   chanceToLinkRooms: 20,
   doorPadding: 1, // Experimental, minimum number of tiles between a door and a room corner (>= 1)
+  doorSize: 1,
   rooms: {
     width: { min: 5, max: 15, onlyOdd: false, onlyEven: false },
     height: { min: 5, max: 15, onlyOdd: false, onlyEven: false },
@@ -36,6 +37,7 @@ export default class Dungeon {
     if (rooms.maxArea < minArea) rooms.maxArea = minArea;
 
     this.doorPadding = config.doorPadding || defaultConfig.doorPadding;
+    this.doorSize = config.doorSize || defaultConfig.doorSize;
     this.width = config.width || defaultConfig.width;
     this.height = config.height || defaultConfig.height;
     this.chanceToLinkRooms = config.chanceToLinkRooms || defaultConfig.chanceToLinkRooms;
@@ -95,9 +97,8 @@ export default class Dungeon {
         if (!this.rooms[i].isConnectedTo(targets[j])) {
           // % chance we add a door connecting the rooms
           if (Math.random() < (this.chanceToLinkRooms / 100)) {
-            const [door1, door2] = this.findNewDoorLocation(this.rooms[i], targets[j]);
-            this.addDoor(door1);
-            this.addDoor(door2);
+            const newDoors = this.findNewDoorLocation(this.rooms[i], targets[j]);
+            newDoors.forEach(door => this.addDoor(door));
           }
         }
       }
@@ -184,9 +185,8 @@ export default class Dungeon {
       room.setPosition(result.x, result.y);
       // Try to add it. If successful, add the door between the rooms and break the loop.
       if (this.addRoom(room)) {
-        const [door1, door2] = this.findNewDoorLocation(room, result.target);
-        this.addDoor(door1);
-        this.addDoor(door2);
+        const newDoors = this.findNewDoorLocation(room, result.target);
+        newDoors.forEach(door => this.addDoor(door));
         break;
       }
 
@@ -256,8 +256,13 @@ export default class Dungeon {
   findNewDoorLocation(room1, room2) {
     const door1 = { x: -1, y: -1 };
     const door2 = { x: -1, y: -1 };
+    
+    const isNorth = (room1.y === room2.y - room1.height);
+    const isEast = (room1.x == room2.x + room2.width);
+    const isSouth = (room1.y == room2.y + room2.height);
+    const isWest = (room1.x == room2.x - room1.width);
 
-    if (room1.y === room2.y - room1.height) {
+    if (isNorth) {
       // North
       door1.x = door2.x = this.r.randomInteger(
         Math.floor(Math.max(room2.left, room1.left) + this.doorPadding),
@@ -265,7 +270,7 @@ export default class Dungeon {
       );
       door1.y = room1.y + room1.height - 1;
       door2.y = room2.y;
-    } else if (room1.x == room2.x - room1.width) {
+    } else if (isWest) {
       // West
       door1.x = room1.x + room1.width - 1;
       door2.x = room2.x;
@@ -273,7 +278,7 @@ export default class Dungeon {
         Math.floor(Math.max(room2.top, room1.top) + this.doorPadding),
         Math.floor(Math.min(room2.bottom, room1.bottom) - this.doorPadding)
       );
-    } else if (room1.x == room2.x + room2.width) {
+    } else if (isEast) {
       // East
       door1.x = room1.x;
       door2.x = room2.x + room2.width - 1;
@@ -281,7 +286,7 @@ export default class Dungeon {
         Math.floor(Math.max(room2.top, room1.top) + this.doorPadding),
         Math.floor(Math.min(room2.bottom, room1.bottom) - this.doorPadding)
       );
-    } else if (room1.y == room2.y + room2.height) {
+    } else if (isSouth) {
       // South
       door1.x = door2.x = this.r.randomInteger(
         Math.floor(Math.max(room2.left, room1.left) + this.doorPadding),
@@ -293,11 +298,39 @@ export default class Dungeon {
 
     door1.linksTo = room2.id;
     door2.linksTo = room1.id;
-
     room1.doors.push(door1);
     room2.doors.push(door2);
 
-    return [door1, door2];
+    const extraDoors = [];
+
+    // surrounds the first door tile with more doors
+    for (let i = 1; i < this.doorSize; i++) {
+      const newDoor1 = { x: -1, y: -1 };
+      const newDoor2 = { x: -1, y: -1 };
+      const isOdd = num => num % 2;
+      const increment = Math.round(i / 2); // how far from centre door 
+      const incremented = doorPos => isOdd(i) ? doorPos - increment : doorPos + increment; // spaces away from centre door 
+
+      if (isNorth || isSouth) {
+        newDoor1.y = door1.y;
+        newDoor2.y = door2.y;
+        // Moves the door up or down
+        newDoor1.x = incremented(door1.x);
+        newDoor2.x = incremented(door2.x);
+      } else {
+        newDoor1.x = door1.x;
+        newDoor2.x = door2.x;
+        // Moves the door left or right
+        newDoor1.y = incremented(door1.y);
+        newDoor2.y = incremented(door2.y);
+      }
+
+      extraDoors.push(newDoor1, newDoor2);
+      room1.doors.push(newDoor1);
+      room2.doors.push(newDoor2);
+    }
+
+    return [door1, door2, ...extraDoors];
   }
 
   findRoomAttachment(room) {
