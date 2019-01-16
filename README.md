@@ -39,7 +39,9 @@ const dungeon = new Dungeon({
   width: 50,
   height: 50,
   doorPadding: 1, // Experimental, minimum number of tiles between a door and a room corner (>= 1)
+  doorSize: 1, // How many tiles in size do you want your doors
   randomSeed: 0, // Leave undefined if you don't want to control the seed
+  chanceToLinkRooms: 20, // % chance that touching rooms will link up automatically
   rooms: {
     width: {
       min: 5,
